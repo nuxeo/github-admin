@@ -19,10 +19,8 @@
 package org.nuxeo.github;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -36,6 +34,7 @@ import org.eclipse.egit.github.core.client.GitHubClient;
 import org.eclipse.egit.github.core.client.RequestException;
 import org.eclipse.egit.github.core.service.CommitService;
 import org.eclipse.egit.github.core.service.RepositoryService;
+import org.eclipse.egit.github.core.service.UserService;
 
 /**
  *
@@ -54,7 +53,7 @@ public class Main {
         GitHubClient client = new GitHubClient();
         client.setOAuth2Token(args[0]);
 
-        List<Contributor> allContributors = new ArrayList<Contributor>();
+        Map<String, Contributor> allContributors = new TreeMap<String, Contributor>();
         Map<String, User> allCommitters = new TreeMap<String, User>();
         RepositoryService repoService = new RepositoryService(client);
         // Repository repo = repoService.getRepository("nuxeo",
@@ -109,36 +108,35 @@ public class Main {
             // Using contributors list from RepositoryService
             List<Contributor> contributors = repoService.getContributors(repo,
                     true);
-            allContributors.addAll(contributors);
+            for (Contributor contributor : contributors) {
+                if (Contributor.TYPE_ANONYMOUS.equals(contributor.getType())
+                        || contributor.getLogin() == null) {
+                    contributor.setLogin(contributor.getName() + " (anonymous)");
+                }
+                if (!allContributors.containsKey(contributor.getLogin())) {
+                    allContributors.put(contributor.getLogin(), contributor);
+                }
+            }
         }
 
         System.out.println(String.format("Found %s committers",
                 allCommitters.size()));
         for (User user : allCommitters.values()) {
-            System.out.println(String.format("login: %s\t\t%s",
-                    user.getLogin(), user.getUrl()));
+            System.out.println(String.format("login: %s\t\t%s\t\t%s",
+                    user.getLogin(), user.getEmail(), user.getUrl()));
         }
 
+        UserService userService = new UserService(client);
         System.out.println(String.format("Found %s contributors",
                 allContributors.size()));
-        Collections.sort(allContributors, new Comparator<Contributor>() {
-            @Override
-            public int compare(Contributor o1, Contributor o2) {
-                String name1 = Contributor.TYPE_ANONYMOUS.equals(o1.getType()) ? o1.getName()
-                        : o1.getLogin();
-                String name2 = Contributor.TYPE_ANONYMOUS.equals(o2.getType()) ? o2.getName()
-                        : o2.getLogin();
-                return name1.compareToIgnoreCase(name2);
+        for (Contributor contributor : allContributors.values()) {
+            String email = "";
+            if (!Contributor.TYPE_ANONYMOUS.equals(contributor.getType())) {
+                User user = userService.getUser(contributor.getLogin());
+                email = user.getEmail();
             }
-        });
-        for (Contributor contributor : allContributors) {
-            if (Contributor.TYPE_ANONYMOUS.equals(contributor.getType())) {
-                System.out.println(String.format("name:  %s (anonymous)",
-                        contributor.getName()));
-            } else {
-                System.out.println(String.format("login: %s\t\t%s",
-                        contributor.getLogin(), contributor.getUrl()));
-            }
+            System.out.println(String.format("login: %s\t\t%s\t\t%s",
+                    contributor.getLogin(), email, contributor.getUrl()));
         }
     }
 }
