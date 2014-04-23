@@ -41,7 +41,8 @@ import org.eclipse.egit.github.core.service.UserService;
  */
 public class Main {
 
-    private static final List<String> EXCLUDES = Collections.unmodifiableList(Arrays.asList("jboss-seam"));
+    private static final List<String> EXCLUDES = Collections.unmodifiableList(Arrays.asList(
+            "jboss-seam", "jodconverter.bak", "richfaces"));
 
     private static boolean exhaustive = true;
 
