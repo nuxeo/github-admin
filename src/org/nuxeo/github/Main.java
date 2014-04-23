@@ -43,6 +43,8 @@ public class Main {
 
     private static final List<String> EXCLUDES = Collections.unmodifiableList(Arrays.asList("jboss-seam"));
 
+    private static boolean exhaustive = true;
+
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
             System.out.println("OAuth access token required");
@@ -66,42 +68,46 @@ public class Main {
                 System.out.println("Parsing " + repo.getName());
             }
 
-            // Extracting contributors list from CommitService
-            CommitService commitService = new CommitService(client);
-            List<RepositoryCommit> commits = null;
-            try {
-                commits = commitService.getCommits(repo);
-            } catch (RequestException e) {
-                System.err.println(e);
-                continue;
-            }
-            for (RepositoryCommit commit : commits) {
-                User committer = commit.getCommitter();
-                if (committer == null) {
-                    CommitUser commitUser = commit.getCommit().getCommitter();
-                    committer = new User();
-                    committer.setName(commitUser.getName());
-                    committer.setLogin(commitUser.getName() + " (anonymous)");
-                    committer.setEmail(commitUser.getEmail());
+            if (exhaustive) {
+                // Extracting contributors list from CommitService
+                CommitService commitService = new CommitService(client);
+                List<RepositoryCommit> commits = null;
+                try {
+                    commits = commitService.getCommits(repo);
+                } catch (RequestException e) {
+                    System.err.println(e);
+                    continue;
                 }
-                if (committer.getLogin() == null) {
-                    System.err.println("Found null! " + committer.getName());
-                } else if (!allCommitters.containsKey(committer.getLogin())) {
-                    allCommitters.put(committer.getLogin(), committer);
-                }
+                for (RepositoryCommit commit : commits) {
+                    User committer = commit.getCommitter();
+                    if (committer == null) {
+                        CommitUser commitUser = commit.getCommit().getCommitter();
+                        committer = new User();
+                        committer.setName(commitUser.getName());
+                        committer.setLogin(commitUser.getName()
+                                + " (anonymous)");
+                        committer.setEmail(commitUser.getEmail());
+                    }
+                    if (committer.getLogin() == null) {
+                        System.err.println("Found null! " + committer.getName());
+                    } else if (!allCommitters.containsKey(committer.getLogin())) {
+                        allCommitters.put(committer.getLogin(), committer);
+                    }
 
-                committer = commit.getAuthor();
-                if (committer == null) {
-                    CommitUser commitUser = commit.getCommit().getAuthor();
-                    committer = new User();
-                    committer.setName(commitUser.getName());
-                    committer.setLogin(commitUser.getName() + " (anonymous)");
-                    committer.setEmail(commitUser.getEmail());
-                }
-                if (committer.getLogin() == null) {
-                    System.err.println("Found null! " + committer.getName());
-                } else if (!allCommitters.containsKey(committer.getLogin())) {
-                    allCommitters.put(committer.getLogin(), committer);
+                    committer = commit.getAuthor();
+                    if (committer == null) {
+                        CommitUser commitUser = commit.getCommit().getAuthor();
+                        committer = new User();
+                        committer.setName(commitUser.getName());
+                        committer.setLogin(commitUser.getName()
+                                + " (anonymous)");
+                        committer.setEmail(commitUser.getEmail());
+                    }
+                    if (committer.getLogin() == null) {
+                        System.err.println("Found null! " + committer.getName());
+                    } else if (!allCommitters.containsKey(committer.getLogin())) {
+                        allCommitters.put(committer.getLogin(), committer);
+                    }
                 }
             }
 
