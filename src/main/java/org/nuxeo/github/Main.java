@@ -29,12 +29,16 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.eclipse.egit.github.core.client.GitHubClient;
 
 /**
  *
  */
 public class Main {
+
+    private static final Log log = LogFactory.getLog(Main.class);
 
     private static Options options = null;
 
@@ -49,6 +53,10 @@ public class Main {
     private static final String OPTION_EXHAUSTIVE = "exhaustive";
 
     private static final String OPTION_EXHAUSTIVE_DESC = "Parse commits for an exhaustive analysis";
+
+    private static final String OPTION_OUTPUT = "output";
+
+    private static final String OPTION_OUTPUT_DESC = "Output file (defaults to /tmp/contributors.csv)";
 
     public static void main(String[] args) throws IOException {
         Analyzer analyzer = parseArgs(args);
@@ -66,10 +74,10 @@ public class Main {
         try {
             cmdLine = parser.parse(options, args);
             List<String> cmdArgs = cmdLine.getArgList();
-            System.out.println("Main.parseArgs() " + Arrays.toString(args));
-            if (cmdLine.hasOption(OPTION_HELP) || cmdArgs.contains(OPTION_HELP)
-                    || cmdArgs.isEmpty()) {
-                throw new ParseException(null);
+            log.info("Program arguments: " + Arrays.toString(args));
+            if (cmdLine.hasOption(OPTION_HELP) || cmdArgs.contains(OPTION_HELP)) {
+                printHelp();
+                return null;
             }
             GitHubClient client = new GitHubClient();
             if (cmdLine.hasOption(OPTION_TOKEN)) {
@@ -82,6 +90,9 @@ public class Main {
                             "A token is required for exhaustive analysis");
                 }
                 analyzer.setExhaustive(true);
+            }
+            if (cmdLine.hasOption(OPTION_OUTPUT)) {
+                analyzer.setOutput(cmdLine.getOptionValue(OPTION_OUTPUT));
             }
             if (cmdLine.getArgList().isEmpty()) {
                 analyzer.setAllNuxeoRepositories();
@@ -96,7 +107,7 @@ public class Main {
                 }
             }
         } catch (ParseException | IOException e) {
-            System.err.println(e.getMessage());
+            log.error(e.getMessage(), e);
             printHelp();
             return null;
         }
@@ -122,6 +133,11 @@ public class Main {
         OptionBuilder.withLongOpt(OPTION_EXHAUSTIVE);
         OptionBuilder.withDescription(OPTION_EXHAUSTIVE_DESC);
         options.addOption(OptionBuilder.create("e"));
+        // output option
+        OptionBuilder.withLongOpt(OPTION_OUTPUT);
+        OptionBuilder.withDescription(OPTION_OUTPUT_DESC);
+        OptionBuilder.hasArg();
+        options.addOption(OptionBuilder.create("o"));
     }
 
     public static void printHelp() {

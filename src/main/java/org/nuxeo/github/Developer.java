@@ -87,13 +87,29 @@ public class Developer implements Comparable<Developer> {
      * @param contributor
      */
     public Developer(Contributor contributor) {
+        this.name = contributor.getName();
         if (contributor.getLogin() == null) {
             this.setAnonymous(true);
-            this.name = contributor.getName();
         } else {
             this.setAnonymous(false);
             this.login = contributor.getLogin();
             this.url = contributor.getUrl();
+        }
+    }
+
+    /**
+     * @param committer
+     */
+    public Developer(User user) {
+        this.name = user.getName();
+        if (user.getLogin() == null) {
+            this.setAnonymous(true);
+        } else {
+            this.setAnonymous(false);
+            this.login = user.getLogin();
+            this.url = user.getUrl();
+            this.company = user.getCompany();
+            this.emails.add(user.getEmail());
         }
     }
 
@@ -206,7 +222,7 @@ public class Developer implements Comparable<Developer> {
      * @return true if all required fields have been filled
      */
     public boolean isComplete() {
-        return (login != null && name != null && !emails.isEmpty());
+        return (login != null && name != null && !emails.isEmpty() && company != null);
     }
 
     @Override

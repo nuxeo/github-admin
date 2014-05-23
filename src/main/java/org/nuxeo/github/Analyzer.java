@@ -19,6 +19,10 @@
 package org.nuxeo.github;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,6 +35,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.Predicate;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -46,9 +52,18 @@ import org.eclipse.egit.github.core.service.RepositoryService;
 import org.eclipse.egit.github.core.service.TeamService;
 import org.eclipse.egit.github.core.service.UserService;
 
+import au.com.bytecode.opencsv.CSVWriter;
+
 import com.google.gson.JsonSyntaxException;
 
 public class Analyzer {
+
+    private final class NuxeoEmailPredicate implements Predicate<String> {
+        @Override
+        public boolean evaluate(String email) {
+            return email != null && email.endsWith("@nuxeo.com");
+        }
+    }
 
     private static final Log log = LogFactory.getLog(Analyzer.class);
 
@@ -79,6 +94,10 @@ public class Analyzer {
     private Map<String, User> nxDevelopersByLogin = new TreeMap<>();
 
     private Map<Long, List<RepositoryCommit>> commitsByRepository = new HashMap<>();
+
+    private Map<String, Developer> allDevelopersByName = new TreeMap<>();
+
+    private Path path;
 
     public Analyzer(GitHubClient client) {
         repoService = new RepositoryService(client);
@@ -133,11 +152,24 @@ public class Analyzer {
      */
     public void analyzeAndPrint() throws IOException {
         setNuxeoDevelopers();
-        printContributors();
-        if (exhaustive) {
-            printCommitters();
+
+        // printContributors();
+        for (Repository repo : repositories) {
+            getContributors(repo);
         }
-        // TODO Parse closed pull-request
+        fillAndSyncDevMaps();
+
+        if (exhaustive) {
+            // printCommitters();
+            for (Repository repo : repositories) {
+                getCommittors(repo);
+            }
+            fillAndSyncDevMaps();
+        }
+
+        // Need to also parse closed pull-request?
+
+        saveAndPrint();
     }
 
     /**
@@ -151,13 +183,51 @@ public class Analyzer {
         for (Repository repo : repositories) {
             getContributors(repo);
         }
+        fillAndSyncDevMaps();
+        saveAndPrint();
+    }
 
+    protected void saveAndPrint() {
+        Set<Developer> allContributors = new TreeSet<>();
+        allContributors.addAll(developersByLogin.values());
+        allContributors.addAll(developersByName.values());
+        log.info(String.format("Found %s contributors", allContributors.size()));
+        if (path == null) {
+            path = Paths.get(System.getProperty("java.io.tmpdir"),
+                    "contributors.csv");
+        }
+        try (CSVWriter writer = new CSVWriter(Files.newBufferedWriter(path,
+                Charset.defaultCharset()), '\t')) {
+            writer.writeNext(new String[] { "Login", "Name", "Emails",
+                    "Company", "URL", "Comments" });
+            for (Developer dev : allContributors) {
+                if (dev.getLogin() != null
+                        && nxDevelopersByLogin.containsKey(dev.getLogin())) {
+                    log.debug("Ignored " + dev);
+                    // continue;
+                }
+                log.info(dev);
+                writer.writeNext(new String[] { dev.getLogin(), dev.getName(),
+                        dev.getEmails().toString(), dev.getCompany(),
+                        dev.getUrl() });
+            }
+            log.info("Saved to file: " + path);
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+        }
+    }
+
+    protected void fillAndSyncDevMaps() throws IOException {
         // Fill missing values for known developers (with login)
         for (Developer dev : developersByLogin.values()) {
             if (dev.isComplete()) {
                 continue;
             }
-            dev.set(nxDevelopersByLogin.get(dev.getLogin()));
+            User nxDev = nxDevelopersByLogin.get(dev.getLogin());
+            if (nxDev != null) {
+                dev.set(nxDev);
+                dev.setCompany("Nuxeo");
+            }
             if (!dev.isComplete()) {
                 try {
                     dev.set(userService.getUser(dev.getLogin()));
@@ -170,14 +240,27 @@ public class Analyzer {
                 }
             }
             if (dev.getName() != null) {
-                developersByName.remove(dev.getName());
+                Developer removed = developersByName.remove(dev.getName());
+                if (!dev.isComplete() && removed != null) {
+                    dev.updateWith(removed);
+                }
             }
-            findEmail(dev);
+            if (findEmail(dev) && dev.getCompany() == null) {
+                if (CollectionUtils.exists(dev.getEmails(),
+                        new NuxeoEmailPredicate())) {
+                    dev.setCompany("Nuxeo (ex?)");
+                }
+            }
         }
 
         // Look for unknown developers' email in commits
         for (Developer dev : developersByName.values()) {
-            findEmail(dev);
+            if (findEmail(dev) && dev.getCompany() == null) {
+                if (CollectionUtils.exists(dev.getEmails(),
+                        new NuxeoEmailPredicate())) {
+                    dev.setCompany("Nuxeo (ex?)");
+                }
+            }
         }
 
         // Merge developersByName into developersByLogin when match
@@ -188,10 +271,13 @@ public class Analyzer {
                 continue;
             }
             for (Developer devWithLogin : developersByLogin.values()) {
-                if (devWithLogin.getEmails().isEmpty()
-                        && !dev.getEmails().isEmpty()
-                        || !Collections.disjoint(devWithLogin.getEmails(),
-                                dev.getEmails())) {
+                if (!CollectionUtils.intersection(devWithLogin.getEmails(),
+                        dev.getEmails()).isEmpty()
+                        || devWithLogin.getLogin().equals(dev.getName())) {
+                    // if (!devWithLogin.getEmails().isEmpty()
+                    // && !dev.getEmails().isEmpty()
+                    // || !Collections.disjoint(devWithLogin.getEmails(),
+                    // dev.getEmails())) {
                     devWithLogin.updateWith(dev);
                     it.remove();
                     break;
@@ -199,26 +285,21 @@ public class Analyzer {
             }
         }
 
-        Set<Developer> allContributors = new TreeSet<>();
-        allContributors.addAll(developersByLogin.values());
-        allContributors.addAll(developersByName.values());
-        log.info(String.format("Found %s contributors", allContributors.size()));
-        for (Developer dev : allContributors) {
-            if (dev.getLogin() != null
-                    && nxDevelopersByLogin.containsKey(dev.getLogin())) {
-                log.debug("Ignored " + dev);
-                // continue;
+        // Update allDevelopersByName
+        for (Developer dev : developersByLogin.values()) {
+            if (StringUtils.isNotEmpty(dev.getName())) {
+                allDevelopersByName.put(dev.getName(), dev);
             }
-            log.info(dev);
         }
     }
 
-    protected void findEmail(Developer dev) throws IOException {
+    // TODO: time consuming; improve the impl using the commits cache
+    protected boolean findEmail(Developer dev) throws IOException {
         if (!dev.getEmails().isEmpty()) {
-            return;
+            return true;
         }
         log.debug("Looking for commits from " + dev);
-        FOUND: for (Repository repository : repositories) {
+        for (Repository repository : repositories) {
             List<RepositoryCommit> commits = getRepositoryCommits(repository);
             for (RepositoryCommit commit : commits) {
                 CommitUser committer = commit.getCommit().getAuthor();
@@ -226,17 +307,18 @@ public class Analyzer {
                         && (committer.getName().equals(dev.getName()) || committer.getName().equals(
                                 dev.getLogin()))) {
                     dev.addEmail(committer.getEmail());
-                    break FOUND;
+                    return true;
                 }
                 committer = commit.getCommit().getCommitter();
                 if (committer != null
                         && (committer.getName().equals(dev.getName()) || committer.getName().equals(
                                 dev.getLogin()))) {
                     dev.addEmail(committer.getEmail());
-                    break FOUND;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     /**
@@ -247,6 +329,7 @@ public class Analyzer {
         List<RepositoryCommit> commits = commitsByRepository.get(repository.getId());
         if (commits == null) {
             try {
+                log.debug("Get commits from " + repository);
                 commits = commitService.getCommits(repository);
             } catch (RequestException e) {
                 log.error(e.getMessage(), e);
@@ -282,80 +365,47 @@ public class Analyzer {
      *
      */
     protected void printCommitters() throws IOException {
-        Map<String, Developer> allDevelopersByName = new TreeMap<>();
-        for (Developer dev : developersByLogin.values()) {
-            if (StringUtils.isNotEmpty(dev.getName())) {
-                allDevelopersByName.put(dev.getName(), dev);
-            }
-        }
-
-//        Map<String, User> usersByLogin = new TreeMap<>();
-//        Map<String, CommitUser> committersByName = new TreeMap<>();
         for (Repository repo : repositories) {
-            // Extracting contributors list from CommitService
-            log.debug("Parsing " + repo.getName());
-
-            List<RepositoryCommit> commits = getRepositoryCommits(repo);
-            for (RepositoryCommit commit : commits) {
-                User committer = commit.getCommitter();
-                if (committer == null) {
-                    CommitUser commitUser = commit.getCommit().getCommitter();
-
-
-                    committersByName.put(commitUser.getName(), commitUser);
-                } else if (!usersByLogin.containsKey(committer.getLogin())) {
-                    usersByLogin.put(committer.getLogin(), committer);
-                }
-                committer = commit.getAuthor();
-                if (committer == null) {
-                    CommitUser commitUser = commit.getCommit().getAuthor();
-                    committersByName.put(commitUser.getName(), commitUser);
-                } else if (!usersByLogin.containsKey(committer.getLogin())) {
-                    usersByLogin.put(committer.getLogin(), committer);
-                }
-            }
+            getCommittors(repo);
         }
+        fillAndSyncDevMaps();
+        saveAndPrint();
+    }
 
-        for (CommitUser committer : committersByName.values()) {
-            boolean found = false;
-            for (User user : usersByLogin.values()) {
-                if (committer.getName().equals(user.getName())
-                        || committer.getName().equals(user.getLogin())) {
-                    found = true;
-                    break;
+    protected void getCommittors(Repository repo) throws IOException {
+        // Extracting contributors list from CommitService
+        log.debug("Parsing " + repo.getName());
+
+        List<RepositoryCommit> commits = getRepositoryCommits(repo);
+        for (RepositoryCommit commit : commits) {
+            User committer = commit.getAuthor();
+            if (committer == null) {
+                CommitUser commitUser = commit.getCommit().getAuthor();
+                if (!allDevelopersByName.containsKey(commitUser.getName())) {
+                    Developer dev = new Developer(commitUser.getName());
+                    dev.addEmail(commitUser.getEmail());
+                    developersByName.put(dev.getName(), dev);
+                    allDevelopersByName.put(dev.getName(), dev);
                 }
+            } else if (committer.getLogin() != null
+                    && !developersByLogin.containsKey(committer.getLogin())) {
+                developersByLogin.put(committer.getLogin(), new Developer(
+                        committer));
             }
-            if (!found) {
-                for (String dev : nxDevelopersByLogin.keySet()) {
-                    User user = nxDevelopersByLogin.get(dev);
-                    if (user.getName() != null
-                            && user.getName().equals(committer.getName())) {
-                        found = true;
-                        usersByLogin.put(user.getLogin(), user);
-                    }
+            committer = commit.getCommitter();
+            if (committer == null) {
+                CommitUser commitUser = commit.getCommit().getAuthor();
+                if (!allDevelopersByName.containsKey(commitUser.getName())) {
+                    Developer dev = new Developer(commitUser.getName());
+                    dev.addEmail(commitUser.getEmail());
+                    developersByName.put(dev.getName(), dev);
+                    allDevelopersByName.put(dev.getName(), dev);
                 }
+            } else if (committer.getLogin() != null
+                    && !developersByLogin.containsKey(committer.getLogin())) {
+                developersByLogin.put(committer.getLogin(), new Developer(
+                        committer));
             }
-            if (!found) {
-                User user = new User();
-                user.setName(committer.getName());
-                user.setLogin(committer.getName() + " (a)");
-                user.setEmail(committer.getEmail());
-                usersByLogin.put(user.getLogin(), user);
-            }
-        }
-        log.info(String.format("Found %s committers", usersByLogin.size()));
-        for (User user : usersByLogin.values()) {
-            // if (allContributors.containsKey(user.getLogin())
-            // || nxDevelopersByLogin.containsKey(user.getLogin())) {
-            // continue;
-            // }
-            if (user.getEmail() == null) {
-                user = userService.getUser(user.getLogin());
-            }
-            log.info(String.format(
-                    "login: %-20s\t\temail: %-30s\t\turl: %-50s\t\tcompany: %s",
-                    user.getLogin(), user.getEmail(), user.getUrl(),
-                    user.getCompany()));
         }
     }
 
@@ -369,5 +419,12 @@ public class Analyzer {
                 nxDevelopersByLogin.put(user.getLogin(), user);
             }
         }
+    }
+
+    /**
+     * @param optionValue Absolute or relative path to the output file.
+     */
+    public void setOutput(String path) {
+        this.path = Paths.get(path);
     }
 }
