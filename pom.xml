@@ -151,6 +151,7 @@
       <properties>
         <github.token>PROVIDE_YOUR_GITHUB_TOKEN</github.token>
         <repo>jcarsique/test-github-admin nuxeo-common</repo>
+        <file>contributors.csv</file>
       </properties>
       <build>
         <plugins>
@@ -172,9 +173,9 @@
                     <argument>-e</argument>
                     <argument>${repo}</argument>
                     <argument>-i</argument>
-                    <argument>contributors.csv</argument>
+                    <argument>${file}</argument>
                     <argument>-o</argument>
-                    <argument>contributors.csv</argument>
+                    <argument>${file}</argument>
                   </arguments>
                 </configuration>
               </execution>
