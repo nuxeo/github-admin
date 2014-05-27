@@ -140,7 +140,7 @@ public class Analyzer {
                 log.debug("Skipped " + repo.getName());
                 continue;
             }
-            log.info("Add for analysis: " + repo.getUrl());
+            log.info("Add for analysis: " + repo.getHtmlUrl());
             repositories.add(repo);
         }
     }
@@ -150,7 +150,7 @@ public class Analyzer {
      */
     public void setNuxeoRepository(String repo) throws IOException {
         Repository repository = repoService.getRepository("nuxeo", repo);
-        log.info("Add for analysis: " + repository.getUrl());
+        log.info("Add for analysis: " + repository.getHtmlUrl());
         repositories.add(repository);
     }
 
@@ -159,7 +159,7 @@ public class Analyzer {
      */
     public void setRepository(String owner, String repo) throws IOException {
         Repository repository = repoService.getRepository(owner, repo);
-        log.info("Add for analysis: " + repository.getUrl());
+        log.info("Add for analysis: " + repository.getHtmlUrl());
         repositories.add(repository);
     }
 

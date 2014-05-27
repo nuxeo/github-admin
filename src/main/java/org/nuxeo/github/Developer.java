@@ -303,7 +303,7 @@ public class Developer implements Comparable<Developer> {
     }
 
     public void addRepository(Repository repo) {
-        commits.add(repo.getUrl());
+        commits.add(repo.getHtmlUrl());
     }
 
     public Set<String> getAliases() {
