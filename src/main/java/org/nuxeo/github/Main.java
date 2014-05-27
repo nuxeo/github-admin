@@ -80,7 +80,7 @@ public class Main {
         try {
             cmdLine = parser.parse(options, args);
             List<String> cmdArgs = cmdLine.getArgList();
-            log.info("Program arguments: " + Arrays.toString(args));
+            log.debug("Program arguments: " + Arrays.toString(args));
             if (cmdLine.hasOption(OPTION_HELP) || cmdArgs.contains(OPTION_HELP)) {
                 printHelp();
                 return null;
