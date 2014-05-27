@@ -54,16 +54,22 @@ public class Main {
 
     private static final String OPTION_EXHAUSTIVE_DESC = "Parse commits for an exhaustive analysis";
 
+    private static final String OPTION_INPUT = "input";
+
+    private static final String OPTION_INPUT_DESC = "Input file (defaults to /tmp/contributors.csv). Can equal to output file.";
+
     private static final String OPTION_OUTPUT = "output";
 
-    private static final String OPTION_OUTPUT_DESC = "Output file (defaults to /tmp/contributors.csv)";
+    private static final String OPTION_OUTPUT_DESC = "Output file (defaults to /tmp/contributors.csv). Can equal to input file.";
 
     public static void main(String[] args) throws IOException {
         Analyzer analyzer = parseArgs(args);
         if (analyzer == null) {
             return;
         }
-        analyzer.analyzeAndPrint();
+        if (analyzer.analyzeAndPrint()) {
+            System.exit(1);
+        }
     }
 
     protected static Analyzer parseArgs(String[] args) {
@@ -91,10 +97,15 @@ public class Main {
                 }
                 analyzer.setExhaustive(true);
             }
+            if (cmdLine.hasOption(OPTION_INPUT)) {
+                analyzer.setInput(cmdLine.getOptionValue(OPTION_INPUT));
+            }
             if (cmdLine.hasOption(OPTION_OUTPUT)) {
                 analyzer.setOutput(cmdLine.getOptionValue(OPTION_OUTPUT));
             }
-            if (cmdLine.getArgList().isEmpty()) {
+            if (cmdLine.getArgList().isEmpty()
+                    || cmdLine.getArgList().size() == 1
+                    && "all".equals(cmdLine.getArgList().get(0))) {
                 analyzer.setAllNuxeoRepositories();
             } else {
                 for (String repo : (List<String>) cmdLine.getArgList()) {
@@ -126,13 +137,18 @@ public class Main {
         // token option
         OptionBuilder.withLongOpt(OPTION_TOKEN);
         OptionBuilder.withDescription(OPTION_TOKEN_DESC);
-        OptionBuilder.isRequired();
+        OptionBuilder.isRequired(false);
         OptionBuilder.hasArg();
         options.addOption(OptionBuilder.create("t"));
         // exhaustive option
         OptionBuilder.withLongOpt(OPTION_EXHAUSTIVE);
         OptionBuilder.withDescription(OPTION_EXHAUSTIVE_DESC);
         options.addOption(OptionBuilder.create("e"));
+        // input option
+        OptionBuilder.withLongOpt(OPTION_INPUT);
+        OptionBuilder.withDescription(OPTION_INPUT_DESC);
+        OptionBuilder.hasArg();
+        options.addOption(OptionBuilder.create("i"));
         // output option
         OptionBuilder.withLongOpt(OPTION_OUTPUT);
         OptionBuilder.withDescription(OPTION_OUTPUT_DESC);
@@ -150,7 +166,7 @@ public class Main {
         System.out.println("\thelp\t\t\tPrint this message.");
         System.out.println("\trepositories\tList of repositories to analyze. "
                 + "In the form: 'somerepo anotherrepo user/userrepo'. "
-                + "If empty, all public non-fork Nuxeo repositories are analyzed.");
+                + "If empty or equal to 'all', then all public non-fork Nuxeo repositories are analyzed.");
     }
 
 }

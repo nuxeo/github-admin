@@ -29,6 +29,8 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.StandardToStringStyle;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.eclipse.egit.github.core.Contributor;
+import org.eclipse.egit.github.core.Repository;
+import org.eclipse.egit.github.core.RepositoryCommit;
 import org.eclipse.egit.github.core.User;
 
 /**
@@ -49,6 +51,12 @@ public class Developer implements Comparable<Developer> {
     private boolean anonymous;
 
     private Set<User> users = new HashSet<>();
+
+    Set<String> commits = new HashSet<>();
+
+    Set<String> aliases = new HashSet<>();
+
+    boolean signed = false;
 
     private static final StandardToStringStyle style;
 
@@ -111,6 +119,9 @@ public class Developer implements Comparable<Developer> {
             this.company = user.getCompany();
             this.emails.add(user.getEmail());
         }
+    }
+
+    Developer() {
     }
 
     public String getLogin() {
@@ -191,9 +202,9 @@ public class Developer implements Comparable<Developer> {
      *
      * @param remove
      */
-    public void updateWith(Developer dev) {
+    public Developer updateWith(Developer dev) {
         if (dev == null) {
-            return;
+            return this;
         }
         if (StringUtils.isBlank(name)) {
             name = dev.getName();
@@ -205,6 +216,11 @@ public class Developer implements Comparable<Developer> {
         if (StringUtils.isBlank(url)) {
             url = dev.getUrl();
         }
+        if (anonymous) {
+            commits.addAll(dev.getCommits());
+        }
+        signed = signed || dev.isSigned();
+        return this;
     }
 
     @Override
@@ -212,9 +228,12 @@ public class Developer implements Comparable<Developer> {
         return new ToStringBuilder(this, style) //
         .append("login", login) //
         .append("name", name) //
+        .append("signed", signed) //
         .append("emails", emails) //
         .append("company", company) //
         .append("url", url) //
+        .append("aliases", aliases) //
+        .append("commits", commits) //
         .toString();
     }
 
@@ -238,9 +257,12 @@ public class Developer implements Comparable<Developer> {
         .appendSuper(super.equals(d)) //
         .append(login, d.login) //
         .append(this.name, d.name) //
+        .append(this.signed, d.signed) //
         .append(this.emails, d.emails) //
         .append(this.url, d.url) //
         .append(this.company, d.company) //
+        .append(this.aliases, d.aliases) //
+        .append(this.commits, d.commits) //
         .isEquals();
     }
 
@@ -249,9 +271,12 @@ public class Developer implements Comparable<Developer> {
         return new CompareToBuilder() //
         .append(this.login, o.login) //
         .append(this.name, o.name) //
+        .append(this.signed, o.signed) //
         .append(this.emails, o.emails) //
         .append(this.url, o.url) //
         .append(this.company, o.company) //
+        .append(this.aliases, o.aliases) //
+        .append(this.commits, o.commits) //
         .toComparison();
     }
 
@@ -260,9 +285,33 @@ public class Developer implements Comparable<Developer> {
         return new HashCodeBuilder() //
         .append(login) //
         .append(name) //
+        .append(signed) //
         .append(emails) //
         .append(url) //
         .append(company) //
+        .append(aliases) //
+        .append(commits) //
         .toHashCode();
     }
+
+    public void addCommit(RepositoryCommit commit) {
+        commits.add(commit.getUrl());
+    }
+
+    public Set<String> getCommits() {
+        return commits;
+    }
+
+    public void addRepository(Repository repo) {
+        commits.add(repo.getUrl());
+    }
+
+    public Set<String> getAliases() {
+        return aliases;
+    }
+
+    public boolean isSigned() {
+        return signed;
+    }
+
 }
