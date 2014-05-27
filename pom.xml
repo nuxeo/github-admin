@@ -57,9 +57,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>exec-maven-plugin</artifactId>
           <version>1.3</version>
-          <configuration>
-            <killAfter>-1</killAfter>
-          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -101,7 +98,6 @@
             <configuration>
               <keepDependenciesWithProvidedScope>true</keepDependenciesWithProvidedScope>
               <shadedArtifactAttached>true</shadedArtifactAttached>
-              <!-- <shadedClassifierName>jar-with-dependencies</shadedClassifierName> -->
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
@@ -132,11 +128,14 @@
                 <id>help</id>
                 <phase>test</phase>
                 <goals>
-                  <goal>java</goal>
+                  <goal>exec</goal>
                 </goals>
                 <configuration>
-                  <mainClass>org.nuxeo.github.Main</mainClass>
+                  <executable>java</executable>
                   <arguments>
+                    <argument>-classpath</argument>
+                    <classpath />
+                    <argument>org.nuxeo.github.Main</argument>
                     <argument>-h</argument>
                   </arguments>
                 </configuration>
@@ -163,19 +162,22 @@
                 <id>run</id>
                 <phase>test</phase>
                 <goals>
-                  <goal>java</goal>
+                  <goal>exec</goal>
                 </goals>
                 <configuration>
-                  <mainClass>org.nuxeo.github.Main</mainClass>
+                  <executable>java</executable>
                   <arguments>
+                    <argument>-classpath</argument>
+                    <classpath />
+                    <argument>org.nuxeo.github.Main</argument>
                     <argument>-t</argument>
                     <argument>${github.token}</argument>
                     <argument>-e</argument>
-                    <argument>${repo}</argument>
                     <argument>-i</argument>
                     <argument>${file}</argument>
                     <argument>-o</argument>
                     <argument>${file}</argument>
+                    <argument>${repo}</argument>
                   </arguments>
                 </configuration>
               </execution>

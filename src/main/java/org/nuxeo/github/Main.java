@@ -19,12 +19,12 @@
 package org.nuxeo.github;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
@@ -80,7 +80,7 @@ public class Main {
         try {
             cmdLine = parser.parse(options, args);
             List<String> cmdArgs = cmdLine.getArgList();
-            log.debug("Program arguments: " + Arrays.toString(args));
+            printArgs(cmdLine);
             if (cmdLine.hasOption(OPTION_HELP) || cmdArgs.contains(OPTION_HELP)) {
                 printHelp();
                 return null;
@@ -125,6 +125,21 @@ public class Main {
             return null;
         }
         return analyzer;
+    }
+
+    protected static void printArgs(CommandLine cmdLine) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Parameters:");
+        for (Option option : cmdLine.getOptions()) {
+            sb.append(" --"
+                    + option.getLongOpt()
+                    + (option.hasArg() ? "="
+                            + (OPTION_TOKEN.equals(option.getLongOpt()) ? "****"
+                                    : option.getValuesList().toString())
+                            : ""));
+        }
+        sb.append(" " + cmdLine.getArgList().toString());
+        log.info(sb.toString());
     }
 
     protected static void initParserOptions() {
