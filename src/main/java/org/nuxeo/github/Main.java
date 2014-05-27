@@ -108,12 +108,14 @@ public class Main {
                     && "all".equals(cmdLine.getArgList().get(0))) {
                 analyzer.setAllNuxeoRepositories();
             } else {
-                for (String repo : (List<String>) cmdLine.getArgList()) {
-                    if (!repo.contains("/")) {
-                        analyzer.setNuxeoRepository(repo);
-                    } else {
-                        String[] split = repo.split("/");
-                        analyzer.setRepository(split[0], split[1]);
+                for (String argList : (List<String>) cmdLine.getArgList()) {
+                    for (String repo : argList.split(" ")) {
+                        if (!repo.contains("/")) {
+                            analyzer.setNuxeoRepository(repo);
+                        } else {
+                            String[] split = repo.split("/");
+                            analyzer.setRepository(split[0], split[1]);
+                        }
                     }
                 }
             }
