@@ -408,7 +408,7 @@ public class Analyzer {
                 log.debug("Get commits from " + repository);
                 commits = commitService.getCommits(repository);
             } catch (RequestException e) {
-                log.error(e.getMessage(), e);
+                log.error("Failure with: " + repository.getUrl(), e);
                 commits = new ArrayList<>();
             }
             commitsByRepository.put(repository.getId(), commits);
