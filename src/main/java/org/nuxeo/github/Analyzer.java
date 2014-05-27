@@ -82,7 +82,8 @@ public class Analyzer {
     private static final int DEVELOPERS_TEAM_ID = 35421;
 
     private static final List<String> EXCLUDES = Collections.unmodifiableList(Arrays.asList(
-            "jboss-seam", "jodconverter.bak", "richfaces"));
+            "jboss-seam", "jodconverter.bak", "richfaces", "daisydiff",
+            "h2database"));
 
     private List<Repository> repositories = new ArrayList<>();
 
@@ -136,7 +137,8 @@ public class Analyzer {
      */
     public void setAllNuxeoRepositories() throws IOException {
         for (Repository repo : repoService.getRepositories("nuxeo")) {
-            if (repo.isPrivate() || repo.isFork() || EXCLUDES.contains(repo)) {
+            if (repo.isPrivate() || repo.isFork()
+                    || EXCLUDES.contains(repo.getName())) {
                 log.debug("Skipped " + repo.getName());
                 continue;
             }
