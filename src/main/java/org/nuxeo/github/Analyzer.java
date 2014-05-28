@@ -526,11 +526,10 @@ public class Analyzer {
         if (!"Developers".equalsIgnoreCase(teamService.getTeam(
                 DEVELOPERS_TEAM_ID).getName())) {
             throw new IOException("Wrong team ID");
-        } else {
-            List<User> users = teamService.getMembers(DEVELOPERS_TEAM_ID);
-            for (User user : users) {
-                nxDevelopersByLogin.put(user.getLogin(), user);
-            }
+        }
+        List<User> users = teamService.getMembers(DEVELOPERS_TEAM_ID);
+        for (User user : users) {
+            nxDevelopersByLogin.put(user.getLogin(), user);
         }
     }
 
