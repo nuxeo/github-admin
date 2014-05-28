@@ -83,7 +83,7 @@ public class Analyzer {
 
     private static final List<String> EXCLUDES = Collections.unmodifiableList(Arrays.asList(
             "jboss-seam", "jodconverter.bak", "richfaces", "daisydiff",
-            "h2database"));
+            "h2database", "Nuxeo-World-App"));
 
     private List<Repository> repositories = new ArrayList<>();
 
