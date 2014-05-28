@@ -276,7 +276,7 @@ public class Analyzer {
                         setToString(dev.getAliases()),
                         "Nuxeo".equalsIgnoreCase(dev.getCompany())
                                 || "ex-Nuxeo".equalsIgnoreCase(dev.getCompany()) ? ""
-                                : setToString(dev.getCommits()) });
+                                : commitsToString(dev.getCommits()) });
             }
             log.info("Saved to file: " + output);
         } catch (IOException e) {
@@ -289,6 +289,24 @@ public class Analyzer {
         StringBuilder sb = new StringBuilder();
         for (Iterator<String> it = strings.iterator(); it.hasNext();) {
             sb.append(it.next());
+            if (it.hasNext()) {
+                sb.append(System.lineSeparator());
+            }
+        }
+        return sb.toString();
+    }
+
+    private String commitsToString(Set<String> strings) {
+        StringBuilder sb = new StringBuilder();
+        String base = "none";
+        for (Iterator<String> it = strings.iterator(); it.hasNext();) {
+            String next = it.next();
+            if (next.startsWith(base) && base.endsWith("commit")) {
+                sb.append(next.substring(base.length() + 1));
+            } else {
+                sb.append(next);
+                base = next.substring(0, next.lastIndexOf('/'));
+            }
             if (it.hasNext()) {
                 sb.append(System.lineSeparator());
             }

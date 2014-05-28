@@ -20,6 +20,8 @@ package org.nuxeo.github;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
@@ -38,6 +40,8 @@ import org.eclipse.egit.github.core.User;
  */
 public class Developer implements Comparable<Developer> {
 
+    private static final Pattern COMMITS_PATTERN = Pattern.compile("https://api.github.com/repos/(.*)/commits/(.*)");
+
     private String login;
 
     private Set<String> emails = new HashSet<>();
@@ -52,7 +56,7 @@ public class Developer implements Comparable<Developer> {
 
     private Set<User> users = new HashSet<>();
 
-    Set<String> commits = new HashSet<>();
+    Set<String> commits = new TreeSet<>();
 
     Set<String> aliases = new HashSet<>();
 
@@ -295,7 +299,9 @@ public class Developer implements Comparable<Developer> {
     }
 
     public void addCommit(RepositoryCommit commit) {
-        commits.add(commit.getUrl());
+        String htmlUrl = COMMITS_PATTERN.matcher(commit.getUrl()).replaceFirst(
+                "https://github.com/$1/commit/$2");
+        commits.add(htmlUrl);
     }
 
     public Set<String> getCommits() {
