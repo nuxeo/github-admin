@@ -274,7 +274,8 @@ public class Analyzer {
                         dev.getCompany(),
                         dev.getUrl(),
                         setToString(dev.getAliases()),
-                        "Nuxeo".equalsIgnoreCase(dev.getCompany())
+                        dev.isSigned()
+                                || "Nuxeo".equalsIgnoreCase(dev.getCompany())
                                 || "ex-Nuxeo".equalsIgnoreCase(dev.getCompany()) ? ""
                                 : commitsToString(dev.getCommits()) });
             }
