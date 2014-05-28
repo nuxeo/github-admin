@@ -23,6 +23,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,9 +61,6 @@ import com.google.gson.JsonSyntaxException;
 
 public class Analyzer {
 
-    /**
-     *
-     */
     private static final String[] CSV_HEADER = new String[] { "Login", "Name",
             "Signed", "Emails", "Company", "URL", "Aliases", "Commits",
             "Trivial commits" };
@@ -230,16 +228,27 @@ public class Analyzer {
             }
             for (Developer dev : developersByLogin.values()) {
                 for (String alias : dev.getAliases()) {
-                    developersByLogin.get(alias).updateWith(dev);
+                    if (developersByLogin.containsKey(alias)) {
+                        developersByLogin.get(alias).updateWith(dev);
+                    }
                 }
             }
             for (Developer dev : developersByName.values()) {
                 for (String alias : dev.getAliases()) {
-                    developersByLogin.get(alias).updateWith(dev);
+                    if (developersByLogin.containsKey(alias)) {
+                        developersByLogin.get(alias).updateWith(dev);
+                    }
                 }
             }
         } catch (IOException e) {
             log.error(e.getMessage(), e);
+            try {
+                Files.copy(input,
+                        input.resolveSibling(input.getFileName() + ".bak"),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e1) {
+                log.error(e1.getMessage(), e1);
+            }
         }
     }
 
@@ -256,7 +265,14 @@ public class Analyzer {
                     "contributors.csv");
         }
         boolean unsigned = false;
-        try (CSVWriter writer = new CSVWriter(Files.newBufferedWriter(output,
+        Path tmpFile;
+        try {
+            tmpFile = Files.createTempFile("contributors", ".csv");
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+            return false;
+        }
+        try (CSVWriter writer = new CSVWriter(Files.newBufferedWriter(tmpFile,
                 Charset.defaultCharset()), '\t')) {
             writer.writeNext(CSV_HEADER);
             for (Developer dev : allContributors) {
@@ -279,9 +295,13 @@ public class Analyzer {
                                 || "ex-Nuxeo".equalsIgnoreCase(dev.getCompany()) ? ""
                                 : commitsToString(dev.getCommits()) });
             }
+            Files.copy(tmpFile, output, StandardCopyOption.REPLACE_EXISTING);
+            Files.delete(tmpFile);
             log.info("Saved to file: " + output);
         } catch (IOException e) {
-            log.error(e.getMessage(), e);
+            log.error(
+                    "See " + tmpFile + System.lineSeparator() + e.getMessage(),
+                    e);
         }
         return unsigned;
     }
@@ -299,14 +319,16 @@ public class Analyzer {
 
     private String commitsToString(Set<String> strings) {
         StringBuilder sb = new StringBuilder();
-        String base = "none";
+        String base = "";
         for (Iterator<String> it = strings.iterator(); it.hasNext();) {
             String next = it.next();
-            if (next.startsWith(base) && base.endsWith("commit")) {
+            if (base.length() > 0 && next.startsWith(base)
+                    && base.endsWith("commit")) {
                 sb.append(next.substring(base.length() + 1));
             } else {
                 sb.append(next);
-                base = next.substring(0, next.lastIndexOf('/'));
+                base = next.contains("commit/") ? next.substring(0,
+                        next.lastIndexOf("/")) : next;
             }
             if (it.hasNext()) {
                 sb.append(System.lineSeparator());
@@ -590,8 +612,16 @@ public class Analyzer {
         str = line[7];
         if (StringUtils.isNotBlank(str)) {
             String[] commits = str.trim().split(System.lineSeparator());
+            String base = "";
             for (String commit : commits) {
-                dev.commits.add(commit.trim());
+                commit = commit.trim();
+                if (base.length() > 0 && !commit.startsWith("http")) {
+                    dev.commits.add(base + commit);
+                } else {
+                    dev.commits.add(commit);
+                    base = commit.contains("commit/") ? commit.substring(0,
+                            commit.lastIndexOf("/")) : commit;
+                }
             }
         }
         return dev;
